@@ -1,0 +1,36 @@
+{
+  "name": "production-logger",
+  "version": "1.0.0",
+  "description": "Real-time production logger for iOS and Android devices",
+  "main": "logger-server.js",
+  "bin": {
+    "logger-cli": "./logger-cli.js",
+    "logger-server": "./logger-server.js"
+  },
+  "scripts": {
+    "start": "node logger-server.js",
+    "cli": "node logger-cli.js",
+    "dev": "nodemon logger-server.js"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.3",
+    "express": "^4.18.2",
+    "uuid": "^9.0.0",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "logger",
+    "production",
+    "realtime",
+    "ios",
+    "android",
+    "monitoring"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
