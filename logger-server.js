@@ -141,6 +141,7 @@ wss.on('connection', (ws, req) => {
           level: data.level || 'INFO',
           message: data.message,
           tag: data.tag || 'APP',
+          data: data.data || null, 
           deviceId: assignedDeviceId,
           deviceName: device.name
         };
