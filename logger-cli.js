@@ -160,12 +160,23 @@ async function watchLogs(filterDeviceId = null) {
   
   ws.on('open', () => {
     console.log(chalk.green('Connected to logger server'));
+    // Send CLI initialization message
+    ws.send(JSON.stringify({ type: 'cli-init' }));
   });
   
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
       
+      // Handle CLI init response
+      if (data.type === 'cli-init-response') {
+        if (data.success) {
+          console.log(chalk.green('Ready to receive logs...\n'));
+        }
+        return;
+      }
+      
+      // Handle log messages
       if (data.type === 'log') {
         const log = data.data;
         
