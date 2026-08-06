@@ -35,6 +35,31 @@ function formatTime(date) {
   });
 }
 
+// Format log data for display
+function formatLogData(data) {
+  if (!data || Object.keys(data).length === 0) {
+    return '';
+  }
+  
+  try {
+    // For simple data, show inline
+    const dataStr = JSON.stringify(data);
+    if (dataStr.length < 100) {
+      return chalk.gray(` ${dataStr}`);
+    }
+    
+    // For complex data, show pretty-printed
+    const prettified = JSON.stringify(data, null, 2)
+      .split('\n')
+      .map((line, i) => i === 0 ? chalk.gray(line) : chalk.gray('    ' + line))
+      .join('\n');
+    
+    return `\n${prettified}`;
+  } catch (err) {
+    return '';
+  }
+}
+
 // Format device status
 function formatStatus(status) {
   if (status === 'online') {
@@ -86,7 +111,7 @@ async function listDevices() {
 }
 
 // Show logs for a specific device
-async function showDeviceLogs(deviceId, limit = 500) {
+async function showDeviceLogs(deviceId, limit = 50) {
   try {
     const response = await axios.get(`${BASE_URL}/api/devices/${deviceId}/logs?limit=${limit}`);
     const { deviceName, logs } = response.data;
@@ -104,7 +129,7 @@ async function showDeviceLogs(deviceId, limit = 500) {
       const tag = chalk.gray(`[${log.tag}]`);
       const time = chalk.gray(formatTime(log.timestamp));
       
-      console.log(`${time} ${levelBadge} ${tag} ${log.message}`);
+      console.log(`${time} ${levelBadge} ${tag} ${log.message}${formatLogData(log.data)}`);
     });
     
     console.log();
@@ -142,7 +167,7 @@ async function showMultiDeviceLogs(deviceIds, limit = 50) {
           const tag = chalk.gray(`[${log.tag}]`);
           const time = chalk.gray(formatTime(log.timestamp));
           
-          console.log(`  ${time} ${levelBadge} ${tag} ${log.message}`);
+          console.log(`  ${time} ${levelBadge} ${tag} ${log.message}${formatLogData(log.data)}`);
         });
       }
       console.log();
@@ -191,7 +216,7 @@ async function watchLogs(filterDeviceId = null) {
         const time = chalk.gray(formatTime(log.timestamp));
         const device = chalk.cyan(`[${log.deviceName}]`);
         
-        console.log(`${time} ${device} ${levelBadge} ${tag} ${log.message}`);
+        console.log(`${time} ${device} ${levelBadge} ${tag} ${log.message}${formatLogData(log.data)}`);
       }
     } catch (err) {
       console.error('Error parsing message:', err);
