@@ -14,22 +14,7 @@ app.use(express.json());
 // Store connected devices and their logs
 const devices = new Map();
 const deviceLogs = new Map();
-const cliConnections = new Set();
 const maxLogsPerDevice = 1000;
-
-// Helper function to broadcast logs to all CLI clients
-function broadcastToCliClients(logEntry) {
-  const message = JSON.stringify({ type: 'log', data: logEntry });
-  cliConnections.forEach(client => {
-    if (client && client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(message);
-      } catch (err) {
-        console.error('Error sending to CLI client:', err);
-      }
-    }
-  });
-}
 
 // Device registration endpoint
 app.post('/api/register-device', (req, res) => {
@@ -62,24 +47,14 @@ app.post('/api/register-device', (req, res) => {
 });
 
 // WebSocket connection for log streaming
-wss.on('connection', (ws, req) => {
+wss.on('connection', (ws) => {
   let assignedDeviceId = null;
-  let isCliConnection = false;
   
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
       
-      // CLI connection identification
-      if (data.type === 'cli-init') {
-        isCliConnection = true;
-        cliConnections.add(ws);
-        console.log(chalk.blue('📊 CLI client connected'));
-        ws.send(JSON.stringify({ type: 'cli-init-response', success: true }));
-        return;
-      }
-      
-      // Device initialization
+      // Initial device identification
       if (data.type === 'init' && data.deviceId) {
         assignedDeviceId = data.deviceId;
         
@@ -94,7 +69,7 @@ wss.on('connection', (ws, req) => {
             message: `Connected as ${device.name}` 
           }));
           
-          console.log(chalk.cyan(`⚡ ${device.name} (${assignedDeviceId}) reconnected`));
+          console.log(chalk.cyan(`⚡ ${device.name} (${assignedDeviceId}) connected`));
         } else {
           ws.send(JSON.stringify({ 
             type: 'init-response', 
@@ -106,7 +81,7 @@ wss.on('connection', (ws, req) => {
       }
       
       // Log entry from device
-      else if (data.type === 'log' && assignedDeviceId && !isCliConnection) {
+      else if (data.type === 'log' && assignedDeviceId) {
         const device = devices.get(assignedDeviceId);
         
         const logEntry = {
@@ -129,8 +104,8 @@ wss.on('connection', (ws, req) => {
         
         device.lastSeen = new Date();
         
-        // Broadcast to CLI clients
-        broadcastToCliClients(logEntry);
+        // Broadcast to all connected CLI clients
+        broadcastLogUpdate(logEntry);
       }
     } catch (err) {
       console.error('WebSocket message error:', err);
@@ -138,10 +113,7 @@ wss.on('connection', (ws, req) => {
   });
   
   ws.on('close', () => {
-    if (isCliConnection) {
-      cliConnections.delete(ws);
-      console.log(chalk.blue('📊 CLI client disconnected'));
-    } else if (assignedDeviceId && devices.has(assignedDeviceId)) {
+    if (assignedDeviceId && devices.has(assignedDeviceId)) {
       const device = devices.get(assignedDeviceId);
       device.status = 'offline';
       console.log(chalk.yellow(`⚠ ${device.name} (${assignedDeviceId}) disconnected`));
@@ -149,7 +121,31 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// GET /api/devices - List all devices
+// Store CLI connections
+const cliConnections = new Set();
+
+// Broadcast log updates to CLI clients
+function broadcastLogUpdate(logEntry) {
+  const message = JSON.stringify({ type: 'log', data: logEntry });
+  cliConnections.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+// CLI WebSocket endpoint
+app.ws = function(path, callback) {
+  wss.on('connection', (ws, req) => {
+    if (req.url === path) {
+      callback(ws, req);
+    }
+  });
+};
+
+// REST API endpoints for CLI
+
+// List all devices
 app.get('/api/devices', (req, res) => {
   const deviceList = Array.from(devices.values()).map(device => ({
     id: device.id,
