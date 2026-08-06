@@ -14,7 +14,22 @@ app.use(express.json());
 // Store connected devices and their logs
 const devices = new Map();
 const deviceLogs = new Map();
+const cliConnections = new Set();
 const maxLogsPerDevice = 1000;
+
+// Helper function to broadcast logs to all CLI clients
+function broadcastToCliClients(logEntry) {
+  const message = JSON.stringify({ type: 'log', data: logEntry });
+  cliConnections.forEach(client => {
+    if (client && client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(message);
+      } catch (err) {
+        console.error('Error sending to CLI client:', err);
+      }
+    }
+  });
+}
 
 // Device registration endpoint
 app.post('/api/register-device', (req, res) => {
@@ -47,14 +62,24 @@ app.post('/api/register-device', (req, res) => {
 });
 
 // WebSocket connection for log streaming
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   let assignedDeviceId = null;
+  let isCliConnection = false;
   
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
       
-      // Initial device identification
+      // CLI connection identification
+      if (data.type === 'cli-init') {
+        isCliConnection = true;
+        cliConnections.add(ws);
+        console.log(chalk.blue('📊 CLI client connected'));
+        ws.send(JSON.stringify({ type: 'cli-init-response', success: true }));
+        return;
+      }
+      
+      // Device initialization
       if (data.type === 'init' && data.deviceId) {
         assignedDeviceId = data.deviceId;
         
@@ -69,7 +94,7 @@ wss.on('connection', (ws) => {
             message: `Connected as ${device.name}` 
           }));
           
-          console.log(chalk.cyan(`⚡ ${device.name} (${assignedDeviceId}) connected`));
+          console.log(chalk.cyan(`⚡ ${device.name} (${assignedDeviceId}) reconnected`));
         } else {
           ws.send(JSON.stringify({ 
             type: 'init-response', 
@@ -81,7 +106,7 @@ wss.on('connection', (ws) => {
       }
       
       // Log entry from device
-      else if (data.type === 'log' && assignedDeviceId) {
+      else if (data.type === 'log' && assignedDeviceId && !isCliConnection) {
         const device = devices.get(assignedDeviceId);
         
         const logEntry = {
@@ -104,8 +129,8 @@ wss.on('connection', (ws) => {
         
         device.lastSeen = new Date();
         
-        // Broadcast to all connected CLI clients
-        broadcastLogUpdate(logEntry);
+        // Broadcast to CLI clients
+        broadcastToCliClients(logEntry);
       }
     } catch (err) {
       console.error('WebSocket message error:', err);
@@ -113,7 +138,10 @@ wss.on('connection', (ws) => {
   });
   
   ws.on('close', () => {
-    if (assignedDeviceId && devices.has(assignedDeviceId)) {
+    if (isCliConnection) {
+      cliConnections.delete(ws);
+      console.log(chalk.blue('📊 CLI client disconnected'));
+    } else if (assignedDeviceId && devices.has(assignedDeviceId)) {
       const device = devices.get(assignedDeviceId);
       device.status = 'offline';
       console.log(chalk.yellow(`⚠ ${device.name} (${assignedDeviceId}) disconnected`));
@@ -121,31 +149,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Store CLI connections
-const cliConnections = new Set();
-
-// Broadcast log updates to CLI clients
-function broadcastLogUpdate(logEntry) {
-  const message = JSON.stringify({ type: 'log', data: logEntry });
-  cliConnections.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
-}
-
-// CLI WebSocket endpoint
-app.ws = function(path, callback) {
-  wss.on('connection', (ws, req) => {
-    if (req.url === path) {
-      callback(ws, req);
-    }
-  });
-};
-
-// REST API endpoints for CLI
-
-// List all devices
+// GET /api/devices - List all devices
 app.get('/api/devices', (req, res) => {
   const deviceList = Array.from(devices.values()).map(device => ({
     id: device.id,
@@ -215,7 +219,7 @@ app.delete('/api/devices/:deviceId/logs', (req, res) => {
   res.json({ message: 'Logs cleared' });
 });
 
-const PORT = process.env.PORT || 5050;
+const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
   console.log(chalk.blue(`\n🚀 Logger Server running on http://localhost:${PORT}`));
