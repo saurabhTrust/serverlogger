@@ -319,7 +319,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5050;
 
 server.listen(PORT, () => {
   console.log(chalk.blue(`🚀 Logger Server running on http://localhost:${PORT}`));
