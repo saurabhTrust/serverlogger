@@ -219,7 +219,7 @@ app.delete('/api/devices/:deviceId/logs', (req, res) => {
   res.json({ message: 'Logs cleared' });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5050;
 
 server.listen(PORT, () => {
   console.log(chalk.blue(`\n🚀 Logger Server running on http://localhost:${PORT}`));

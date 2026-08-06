@@ -6,8 +6,8 @@ const Table = require('cli-table3');
 const WebSocket = require('ws');
 const readline = require('readline');
 
-const BASE_URL = process.env.LOGGER_URL || 'http://localhost:3000';
-const WS_URL = process.env.LOGGER_WS || 'ws://localhost:3000';
+const BASE_URL = process.env.LOGGER_URL || 'http://localhost:5050';
+const WS_URL = process.env.LOGGER_WS || 'ws://localhost:5050';
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -86,7 +86,7 @@ async function listDevices() {
 }
 
 // Show logs for a specific device
-async function showDeviceLogs(deviceId, limit = 50) {
+async function showDeviceLogs(deviceId, limit = 500) {
   try {
     const response = await axios.get(`${BASE_URL}/api/devices/${deviceId}/logs?limit=${limit}`);
     const { deviceName, logs } = response.data;
