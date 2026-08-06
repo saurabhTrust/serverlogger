@@ -86,7 +86,7 @@ async function listDevices() {
 }
 
 // Show logs for a specific device
-async function showDeviceLogs(deviceId, limit = 50) {
+async function showDeviceLogs(deviceId, limit = 500) {
   try {
     const response = await axios.get(`${BASE_URL}/api/devices/${deviceId}/logs?limit=${limit}`);
     const { deviceName, logs } = response.data;
