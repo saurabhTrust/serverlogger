@@ -143,7 +143,7 @@ async function showDeviceLogs(deviceId, limit = 50) {
 }
 
 // Show logs from multiple devices
-async function showMultiDeviceLogs(deviceIds, limit = 50) {
+async function showMultiDeviceLogs(deviceIds, limit = 500) {
   try {
     const response = await axios.post(`${BASE_URL}/api/devices/logs/multi`, {
       deviceIds,
